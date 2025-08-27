@@ -7,6 +7,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .sparkline-canvas {
+    width: 100% !important;
+    height: 70px !important; /* fixed height */
+  }
+</style>
 </head>
 <body class="bg-gray-100 text-gray-900 p-6">
 
@@ -95,20 +101,25 @@ function renderCoinGrid(filterText = "") {
 
     card.innerHTML = `
       <h3 class="font-bold text-lg mb-1">${coin.name}</h3>
-      <p class="mb-2">$${priceUSD} / ${priceV}V</p>
-      <canvas id="spark-${coin.id}" width="150" height="50"></canvas>
+      <p class="mb-2">$${coin.price.toFixed(2)} / ${(coin.price * vanryRate).toFixed(2)}V</p>
+      <canvas id="spark-${coin.id}" class="sparkline-canvas" width="150" height="50"></canvas>
     `;
 
     grid.appendChild(card);
 
-    // Sparkline chart
+    // Normalize chart data 0–100
+    const prices = chartDataSamples[coin.id];
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const normalized = min === max ? prices.map(() => 50) : prices.map(p => ((p - min) / (max - min)) * 100);
+
     const ctxSpark = document.getElementById(`spark-${coin.id}`).getContext("2d");
     new Chart(ctxSpark, {
       type: "line",
       data: {
-        labels: chartDataSamples[coin.id].map((_, i) => i+1),
+        labels: ["Day 1","Day 2","Day 3","Day 4","Day 5"],
         datasets: [{
-          data: chartDataSamples[coin.id],
+          data: chartDataSamples[coin.id], // use actual prices
           borderColor: coin.color,
           backgroundColor: "transparent",
           tension: 0.3,
@@ -118,7 +129,9 @@ function renderCoinGrid(filterText = "") {
       },
       options: {
         plugins: { legend: { display: false } },
-        scales: { x: { display: false }, y: { display: false } }
+        scales: { x: { display: true }, y: { display: true } },
+        responsive: true,
+        maintainAspectRatio: false
       }
     });
   });
