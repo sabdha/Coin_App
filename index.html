@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coin Listing App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen bg-base-200">
+  <!-- Navbar -->
+  <div class="navbar bg-base-100 shadow-md">
+    <div class="flex-1">
+      <a class="btn btn-ghost text-xl font-bold">CoinLister</a>
+    </div>
+    
+    <div class="flex-none">
+      <button class="btn btn-sm btn-outline" onclick="toggleTheme()">🌙/☀️</button>
+    </div>
+  </div>
+  
+<!-- Main layout -->
+<div class="flex gap-4 p-6">
+  <!-- Left: Coin List -->
+  <div id="coinList" class="w-1/4 bg-base-100 p-4 shadow-lg rounded-lg">
+    <h2 class="text-lg font-bold mb-4">Coins</h2>
+    <input 
+      type="text" 
+      id="coinSearch" 
+      placeholder="Search coins..." 
+      class="input input-bordered w-full mb-4"
+    />
+    <div id="coin-container">
+      <!-- Coin items will be populated by JS -->
+    </div>
+  </div>
+
+  <!-- Right: Chart -->
+  <div id="coinChart" class="flex-1 bg-base-100 p-4 shadow-lg rounded-lg">
+    <h2 id="chartTitle" class="text-xl font-bold mb-4">Bitcoin Price (USD / Vanry)</h2>
+    <canvas id="chartCanvas" height="200"></canvas>
+  </div>
+</div>
+  
+  <script>
+    // Dark mode toggle
+    function toggleTheme() {
+      const html = document.documentElement;
+      html.setAttribute("data-theme", html.getAttribute("data-theme") === "light" ? "dark" : "light");
+    }
+
+    // Coin data with correct CoinGecko IDs
+const coins = [
+  { name: "Bitcoin", id: "bitcoin", color: "#22c55e" },
+  { name: "Ethereum", id: "ethereum", color: "#6366f1" },
+  { name: "Solana", id: "solana", color: "#00ffcc" },
+  { name: "Cardano", id: "cardano", color: "#3b82f6" },
+  { name: "Ripple", id: "ripple", color: "#10b981" },
+  { name: "Dogecoin", id: "dogecoin", color: "#facc15" },
+  { name: "Polkadot", id: "polkadot", color: "#f472b6" },
+  { name: "BNB", id: "binancecoin", color: "#f59e0b" },
+  { name: "Litecoin", id: "litecoin", color: "#9ca3af" },
+  { name: "Polygon", id: "matic-network", color: "#8b5cf6" },
+  { name: "Avalanche", id: "avalanche-2", color: "#ef4444" },
+  { name: "Tron", id: "tron", color: "#14b8a6" },
+  { name: "Cosmos", id: "cosmos", color: "#06b6d4" },
+  { name: "Uniswap", id: "uniswap", color: "#ec4899" },
+  { name: "Shiba Inu", id: "shiba-inu", color: "#f87171" },
+];
+
+    const chartDataSamples = {
+      bitcoin: [42000, 43000, 42500, 44000, 44500],
+      ethereum: [3100, 3200, 3150, 3000, 3050],
+      solana: [120, 125, 130, 128, 132],
+      cardano: [0.45, 0.48, 0.47, 0.46, 0.49],
+      ripple: [0.5, 0.52, 0.51, 0.53, 0.52],
+      dogecoin: [0.08, 0.085, 0.083, 0.087, 0.085],
+      polkadot: [6, 6.2, 6.1, 6.3, 6.5],
+      binancecoin: [320, 325, 318, 330, 322],
+      litecoin: [95, 97, 93, 98, 96],
+      "matic-network": [0.8, 0.82, 0.81, 0.85, 0.83],
+      "avalanche-2": [33, 34, 32, 35, 34],
+      tron: [0.1, 0.11, 0.105, 0.112, 0.11],
+      cosmos: [11, 12, 11.5, 12.2, 12],
+      uniswap: [7, 7.5, 7.2, 7.6, 7.4],
+      "shiba-inu": [0.000008, 0.000009, 0.0000085, 0.0000092, 0.000009],
+    };
+
+    // Chart setup
+    const coinListDiv = document.getElementById("coinList");
+    const ctx = document.getElementById("chartCanvas").getContext("2d");
+    let chart = new Chart(ctx, createChartConfig("bitcoin"));
+
+    function createChartConfig(coinId) {
+      return {
+        type: "line",
+        data: {
+          labels: ["1d", "2d", "3d", "4d", "5d"],
+          datasets: [{
+            data: chartDataSamples[coinId],
+            borderColor: coins.find(c => c.id === coinId).color,
+            backgroundColor: "transparent",
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { display: false }, y: { display: true } }
+        }
+      };
+    }
+
+    // Populate coin list
+    const vanryRate = 3.67;
+    // Fetch live prices from CoinGecko
+    async function updatePrices() {
+      const coinIds = coins.map(c => c.id).join(",");
+      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`);
+      const data = await response.json();
+      coins.forEach(coin => {
+        if (!coin.price) coin.price = 0;
+        coin.price = data[coin.id]?.usd || 0;
+      });
+      renderCoins();
+    }
+
+    function renderCoins(filterText = "") {
+  const container = document.getElementById("coin-container"); // only coin items
+  container.innerHTML = ""; // clear previous coins
+
+  coins
+    .filter(coin => coin.name.toLowerCase().includes(filterText.toLowerCase()))
+    .forEach(coin => {
+      const div = document.createElement("div");
+      const vanryPrice = (coin.price * vanryRate).toFixed(2);
+      const formattedPrice = coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+      div.innerHTML = `<span>${coin.name}</span>
+                       <span class="font-semibold">$${formattedPrice} / ${vanryPrice}V</span>`;
+      div.className = "p-2 cursor-pointer hover:bg-base-300 rounded";
+
+      if (coin.id === "bitcoin") div.classList.add("bg-primary", "text-white");
+
+      div.onclick = () => {
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, createChartConfig(coin.id));
+
+        document.querySelectorAll("#coin-container div").forEach(d => d.classList.remove("bg-primary", "text-white"));
+        div.classList.add("bg-primary", "text-white");
+
+        const chartTitle = document.getElementById("chartTitle");
+        if (chartTitle) chartTitle.textContent = `${coin.name} Price (USD / Vanry)`;
+      };
+
+      container.appendChild(div);
+    });
+}
+
+// Attach search event
+document.getElementById("coinSearch").addEventListener("input", (e) => {
+  renderCoins(e.target.value);
+});
+  // Run the function
+  updatePrices();
+  // Refresh prices every minute
+  setInterval(updatePrices, 60000);
+  </script>
+</body>
+</html>
